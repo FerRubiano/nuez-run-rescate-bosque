@@ -1,0 +1,113 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="NUEZ RUN: Rescate del Bosque. Ayuda a Nuez a recuperar las bellotas y proteger su hogar.">
+  <title>NUEZ RUN – Rescate del Bosque</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <main class="game-container">
+
+    <header class="game-header">
+      <h1>🐿️ NUEZ RUN</h1>
+      <p class="subtitle">Rescate del Bosque</p>
+      <p class="story">
+        Ayuda a Nuez a recuperar las bellotas y proteger su hogar.
+      </p>
+    </header>
+
+    <!-- MENÚ PRINCIPAL -->
+    <section id="mainMenu" class="menu-panel" aria-labelledby="menuTitle">
+      <div class="menu-character" aria-hidden="true">🐿️ 🌰 🍂</div>
+
+      <h2 id="menuTitle">¡El bosque te necesita!</h2>
+
+      <p>
+        Salta sobre los troncos, recoge bellotas y ayuda a Nuez
+        a recuperar su hogar.
+      </p>
+
+      <div class="menu-buttons">
+        <button id="playButton" type="button">▶ Jugar</button>
+        <button id="instructionsButton" type="button" class="secondary-button">
+          ¿Cómo jugar?
+        </button>
+      </div>
+    </section>
+
+    <!-- INSTRUCCIONES -->
+    <section id="instructionsPanel" class="menu-panel" hidden
+      aria-labelledby="instructionsTitle">
+
+      <h2 id="instructionsTitle">¿Cómo jugar?</h2>
+
+      <ul class="instructions-list">
+        <li><strong>Barra espaciadora:</strong> saltar.</li>
+        <li><strong>Doble salto:</strong> vuelve a activar el salto mientras estás en el aire.</li>
+        <li><strong>Bellotas:</strong> recoge cada una para sumar 10 puntos.</li>
+        <li><strong>Troncos:</strong> evita chocar para conservar tus vidas.</li>
+        <li><strong>Objetivo:</strong> consigue tantas bellotas como puedas antes de que termine el tiempo.</li>
+      </ul>
+
+      <button id="backButton" type="button" class="secondary-button">
+        ← Volver al menú
+      </button>
+    </section>
+
+    <!-- ÁREA DE JUEGO -->
+    <section id="gamePanel" hidden aria-label="Partida">
+      <section class="game-info" aria-label="Estado de la partida">
+        <p>🌰 Puntuación: <span id="score">0</span></p>
+        <p>⏱️ Tiempo: <span id="time">60</span> s</p>
+        <p>❤️ Vidas: <span id="lives">3</span></p>
+      </section>
+
+      <section class="game-area" aria-label="Escenario de NUEZ RUN">
+        <canvas
+          id="gameCanvas"
+          width="800"
+          height="450"
+          aria-label="Bosque donde Nuez salta troncos y recoge bellotas">
+          Tu navegador no admite el elemento canvas.
+        </canvas>
+      </section>
+
+      <p class="game-hint">
+        Usa la barra espaciadora para saltar y recoger bellotas.
+      </p>
+    </section>
+
+    <!-- RESULTADO DE LA PARTIDA -->
+    <section id="resultPanel" class="menu-panel" hidden
+      aria-labelledby="resultTitle">
+
+      <div class="menu-character" aria-hidden="true">🐿️ 🌳</div>
+
+      <h2 id="resultTitle">Fin de la aventura</h2>
+      <p id="resultMessage">¡Gracias por ayudar a Nuez!</p>
+      <p class="final-score">
+        Puntuación final: <strong id="finalScore">0</strong>
+      </p>
+
+      <div class="menu-buttons">
+        <button id="restartButton" type="button">↻ Volver a jugar</button>
+        <button id="menuButton" type="button" class="secondary-button">
+          Volver al menú
+        </button>
+      </div>
+    </section>
+
+    <footer>
+      <p>NUEZ RUN – Rescate del Bosque</p>
+      <p>Prototipo académico · Diseño Interactivo</p>
+    </footer>
+
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
