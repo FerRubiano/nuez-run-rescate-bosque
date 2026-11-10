@@ -1,113 +1,144 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="NUEZ RUN: Rescate del Bosque. Ayuda a Nuez a recuperar las bellotas y proteger su hogar.">
+  <meta name="theme-color" content="#f8edda">
+  <meta name="description" content="Nuez Run: corre por los tres senderos del bosque, esquiva obstáculos y recoge bellotas para restaurar el hogar de Nuez.">
   <title>NUEZ RUN – Rescate del Bosque</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="./style.css">
+  <script src="./game.js" defer></script>
 </head>
-
 <body>
   <main class="game-container">
-
     <header class="game-header">
       <h1>🐿️ NUEZ RUN</h1>
-      <p class="subtitle">Rescate del Bosque</p>
-      <p class="story">
-        Ayuda a Nuez a recuperar las bellotas y proteger su hogar.
-      </p>
+      <p class="subtitle">Rescate del Bosque · Demo mejorada</p>
     </header>
 
-    <!-- MENÚ PRINCIPAL -->
-    <section id="mainMenu" class="menu-panel" aria-labelledby="menuTitle">
-      <div class="menu-character" aria-hidden="true">🐿️ 🌰 🍂</div>
-
-      <h2 id="menuTitle">¡El bosque te necesita!</h2>
-
-      <p>
-        Salta sobre los troncos, recoge bellotas y ayuda a Nuez
-        a recuperar su hogar.
-      </p>
-
+    <!-- ===== MENÚ PRINCIPAL ===== -->
+    <section id="mainMenu" class="menu-panel">
+      <div class="menu-character" aria-hidden="true">🐿️ 🌰 🌳</div>
+      <h2>¡El bosque te necesita!</h2>
+      <p>La máquina <strong>Taladora</strong> está arrasando el bosque. Ayuda a Nuez a correr por los tres senderos,
+        esquivar obstáculos y recoger bellotas para replantar su hogar. ¡Cada bellota hace reverdecer el bosque!</p>
+      <p class="record-line">🏆 Récord personal: <strong id="menuRecord">0</strong> puntos</p>
       <div class="menu-buttons">
         <button id="playButton" type="button">▶ Jugar</button>
-        <button id="instructionsButton" type="button" class="secondary-button">
-          ¿Cómo jugar?
-        </button>
+        <button id="tutorialButton" class="secondary-button" type="button">🎓 Jugar con tutorial</button>
+        <button id="instructionsButton" class="secondary-button" type="button">❓ ¿Cómo jugar?</button>
       </div>
     </section>
 
-    <!-- INSTRUCCIONES -->
-    <section id="instructionsPanel" class="menu-panel" hidden
-      aria-labelledby="instructionsTitle">
+    <!-- ===== INSTRUCCIONES ===== -->
+    <section id="instructionsPanel" class="instructions-panel" hidden>
+      <h2>¿Cómo jugar?</h2>
 
-      <h2 id="instructionsTitle">¿Cómo jugar?</h2>
+      <h3>Controles</h3>
+      <table class="controls-table">
+        <thead><tr><th>Acción</th><th>Teclado</th><th>Celular / tableta</th></tr></thead>
+        <tbody>
+          <tr><td>Cambiar de sendero</td><td>← → o A / D</td><td>Desliza a la izquierda / derecha</td></tr>
+          <tr><td>Saltar</td><td>↑, W o Espacio</td><td>Desliza hacia arriba o toca la pantalla</td></tr>
+          <tr><td>Rodar</td><td>↓ o S</td><td>Desliza hacia abajo</td></tr>
+          <tr><td>Pausa</td><td>P o Esc</td><td>Botón ⏸</td></tr>
+          <tr><td>Sonido</td><td>M</td><td>Botón 🔊</td></tr>
+        </tbody>
+      </table>
 
+      <h3>Obstáculos</h3>
       <ul class="instructions-list">
-        <li><strong>Barra espaciadora:</strong> saltar.</li>
-        <li><strong>Doble salto:</strong> vuelve a activar el salto mientras estás en el aire.</li>
-        <li><strong>Bellotas:</strong> recoge cada una para sumar 10 puntos.</li>
-        <li><strong>Troncos:</strong> evita chocar para conservar tus vidas.</li>
-        <li><strong>Objetivo:</strong> consigue tantas bellotas como puedas antes de que termine el tiempo.</li>
+        <li><span class="tag tag-jump">SALTA</span> 🪵 <strong>Tronco</strong> en el suelo.</li>
+        <li><span class="tag tag-roll">RUEDA</span> 🌿 <strong>Árbol caído</strong> a media altura.</li>
+        <li><span class="tag tag-lane">CAMBIA DE SENDERO</span> 🚜 <strong>Camión maderero</strong>: no se puede saltar.</li>
+        <li>⚠️ Si chocas de lado, Nuez tropieza y la <strong>Taladora</strong> se acerca. Si tropiezas otra vez mientras te persigue, pierdes una vida.</li>
+        <li>❤️ Tienes 3 vidas. Después de un golpe eres invulnerable por un momento.</li>
       </ul>
 
-      <button id="backButton" type="button" class="secondary-button">
-        ← Volver al menú
-      </button>
+      <h3>Potenciadores</h3>
+      <ul class="instructions-list">
+        <li>🧲 <strong>Imán de semillas</strong>: atrae las bellotas cercanas.</li>
+        <li>🍄 <strong>Hongo saltarín</strong>: saltos súper altos.</li>
+        <li>🍃 <strong>Escudo de hojas</strong>: te protege de un golpe.</li>
+        <li>✨ <strong>Semilla doble</strong>: duplica los puntos.</li>
+      </ul>
+
+      <h3>Objetivo</h3>
+      <ul class="instructions-list">
+        <li>🌰 Recoge bellotas: cada etapa del bosque restaurado sube tu multiplicador de puntos.</li>
+        <li>🌳 Junta 60 bellotas para <strong>restaurar el bosque</strong> por completo… y sigue corriendo para batir tu récord.</li>
+      </ul>
+      <div class="menu-buttons"><button id="backButton" type="button">⬅ Volver al menú</button></div>
     </section>
 
-    <!-- ÁREA DE JUEGO -->
-    <section id="gamePanel" hidden aria-label="Partida">
-      <section class="game-info" aria-label="Estado de la partida">
-        <p>🌰 Puntuación: <span id="score">0</span></p>
-        <p>⏱️ Tiempo: <span id="time">60</span> s</p>
-        <p>❤️ Vidas: <span id="lives">3</span></p>
-      </section>
+    <!-- ===== PARTIDA ===== -->
+    <section id="gamePanel" hidden>
+      <div class="game-area" id="gameArea">
+        <canvas id="gameCanvas" width="800" height="450" aria-label="Juego Nuez Run: corre por tres senderos, esquiva obstáculos y recoge bellotas">Tu navegador no admite el elemento canvas.</canvas>
 
-      <section class="game-area" aria-label="Escenario de NUEZ RUN">
-        <canvas
-          id="gameCanvas"
-          width="800"
-          height="450"
-          aria-label="Bosque donde Nuez salta troncos y recoge bellotas">
-          Tu navegador no admite el elemento canvas.
-        </canvas>
-      </section>
+        <!-- HUD superpuesto -->
+        <div class="hud" aria-live="off">
+          <div class="hud-left">
+            <div id="lives" class="hud-chip hud-lives" aria-label="Vidas">❤️❤️❤️</div>
+            <div id="powerups" class="hud-powerups"></div>
+          </div>
+          <div class="hud-center">
+            <div class="hud-chip forest-chip">
+              <span id="forestLabel">🍂 Bosque seco</span>
+              <div class="forest-bar" aria-hidden="true"><div id="forestFill"></div></div>
+            </div>
+          </div>
+          <div class="hud-right">
+            <div class="hud-chip hud-score"><span id="score">0</span></div>
+            <div class="hud-row">
+              <div class="hud-chip">🌰 <span id="acorns">0</span></div>
+              <div class="hud-chip hud-mult">x<span id="multiplier">1</span></div>
+            </div>
+          </div>
+        </div>
 
-      <p class="game-hint">
-        Usa la barra espaciadora para saltar y recoger bellotas.
-      </p>
+        <div class="hud-buttons">
+          <button id="pauseButton" class="icon-button" type="button" aria-label="Pausar">⏸</button>
+          <button id="muteButton" class="icon-button" type="button" aria-label="Silenciar">🔊</button>
+        </div>
+
+        <div id="prompt" class="prompt" hidden></div>
+        <div id="banner" class="banner" hidden></div>
+        <div id="countdown" class="countdown" hidden></div>
+
+        <div id="pauseOverlay" class="overlay" hidden>
+          <div class="overlay-card">
+            <h2>⏸ Pausa</h2>
+            <p>Respira, Nuez. El bosque te espera.</p>
+            <div class="menu-buttons">
+              <button id="resumeButton" type="button">▶ Continuar</button>
+              <button id="quitButton" class="secondary-button" type="button">🏡 Salir al menú</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="game-hint">← → cambiar de sendero · ↑ / Espacio saltar · ↓ rodar · P pausa — En celular: desliza el dedo</p>
     </section>
 
-    <!-- RESULTADO DE LA PARTIDA -->
-    <section id="resultPanel" class="menu-panel" hidden
-      aria-labelledby="resultTitle">
-
-      <div class="menu-character" aria-hidden="true">🐿️ 🌳</div>
-
-      <h2 id="resultTitle">Fin de la aventura</h2>
-      <p id="resultMessage">¡Gracias por ayudar a Nuez!</p>
-      <p class="final-score">
-        Puntuación final: <strong id="finalScore">0</strong>
-      </p>
-
+    <!-- ===== RESULTADO ===== -->
+    <section id="resultPanel" hidden aria-live="polite">
+      <h2 id="resultTitle">Fin de la carrera</h2>
+      <p id="resultCause" class="result-cause"></p>
+      <div class="stats-grid">
+        <div class="stat"><span class="stat-label">Puntos</span><span id="finalScore" class="stat-value">0</span></div>
+        <div class="stat"><span class="stat-label">Distancia</span><span id="finalDistance" class="stat-value">0 m</span></div>
+        <div class="stat"><span class="stat-label">Bellotas</span><span id="finalAcorns" class="stat-value">0</span></div>
+        <div class="stat"><span class="stat-label">Bosque</span><span id="finalForest" class="stat-value">Seco</span></div>
+      </div>
+      <p id="resultMessage"></p>
+      <p id="resultTip" class="result-tip"></p>
       <div class="menu-buttons">
-        <button id="restartButton" type="button">↻ Volver a jugar</button>
-        <button id="menuButton" type="button" class="secondary-button">
-          Volver al menú
-        </button>
+        <button id="restartButton" type="button">🔄 Jugar de nuevo (Enter)</button>
+        <button id="menuButton" class="secondary-button" type="button">🏡 Volver al menú</button>
       </div>
     </section>
 
-    <footer>
-      <p>NUEZ RUN – Rescate del Bosque</p>
-      <p>Prototipo académico · Diseño Interactivo</p>
-    </footer>
-
+    <footer><p>NUEZ RUN – Rescate del Bosque</p><p>Prototipo académico · Diseño Interactivo · Grupo 213030_47</p></footer>
   </main>
-
-  <script src="game.js"></script>
 </body>
 </html>
