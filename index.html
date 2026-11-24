@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#f8edda">
   <meta name="description" content="Nuez Run: corre por los tres senderos del bosque, esquiva obstáculos y recoge bellotas para restaurar el hogar de Nuez.">
   <title>NUEZ RUN – Rescate del Bosque</title>
@@ -42,7 +42,8 @@
           <tr><td>Saltar</td><td>↑, W o Espacio</td><td>Desliza hacia arriba o toca la pantalla</td></tr>
           <tr><td>Rodar</td><td>↓ o S</td><td>Desliza hacia abajo</td></tr>
           <tr><td>Pausa</td><td>P o Esc</td><td>Botón ⏸</td></tr>
-          <tr><td>Sonido</td><td>M</td><td>Botón 🔊</td></tr>
+          <tr><td>Sonido (todo)</td><td>M</td><td>Botón 🔊</td></tr>
+          <tr><td>Música de fondo</td><td>N</td><td>Botón 🎵</td></tr>
         </tbody>
       </table>
 
@@ -53,6 +54,13 @@
         <li><span class="tag tag-lane">CAMBIA DE SENDERO</span> 🚜 <strong>Camión maderero</strong>: no se puede saltar.</li>
         <li>⚠️ Si chocas de lado, Nuez tropieza y la <strong>Taladora</strong> se acerca. Si tropiezas otra vez mientras te persigue, pierdes una vida.</li>
         <li>❤️ Tienes 3 vidas. Después de un golpe eres invulnerable por un momento.</li>
+      </ul>
+
+      <h3>Bellotas</h3>
+      <ul class="instructions-list">
+        <li>🌰 Cada bellota suma 10 puntos y ayuda a restaurar el bosque.</li>
+        <li>🌟 La <strong>bellota dorada</strong> vale 50 puntos y cuenta como 3, pero siempre está en un lugar arriesgado.</li>
+        <li>👀 ¡Ojo! Las bellotas <strong>no siempre marcan el camino seguro</strong>: algunas llevan hacia un obstáculo, otras flotan en el aire o están debajo de los árboles caídos.</li>
       </ul>
 
       <h3>Potenciadores</h3>
@@ -99,6 +107,8 @@
 
         <div class="hud-buttons">
           <button id="pauseButton" class="icon-button" type="button" aria-label="Pausar">⏸</button>
+          <button id="fullscreenButton" class="icon-button" type="button" aria-label="Pantalla completa">⛶</button>
+          <button id="musicButton" class="icon-button" type="button" aria-label="Apagar música" aria-pressed="true">🎵</button>
           <button id="muteButton" class="icon-button" type="button" aria-label="Silenciar">🔊</button>
         </div>
 
@@ -117,7 +127,8 @@
           </div>
         </div>
       </div>
-      <p class="game-hint">← → cambiar de sendero · ↑ / Espacio saltar · ↓ rodar · P pausa — En celular: desliza el dedo</p>
+      <p class="game-hint hint-keys">← → cambiar de sendero · ↑ / Espacio saltar · ↓ rodar · P pausa · M sonido · N música</p>
+      <p class="game-hint hint-touch">Desliza ← → para cambiar de sendero · ↑ o toca para saltar · ↓ para rodar</p>
     </section>
 
     <!-- ===== RESULTADO ===== -->

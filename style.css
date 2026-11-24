@@ -230,7 +230,7 @@ button.secondary-button:hover {
 }
 
 .hud-left { align-items: flex-start; }
-.hud-right { align-items: flex-end; margin-right: clamp(64px, 11vw, 96px); }
+.hud-right { align-items: flex-end; margin-right: clamp(135px, 21vw, 192px); }
 
 .hud-center {
   position: absolute;
@@ -349,6 +349,11 @@ button.secondary-button:hover {
   color: #4a3016;
   border: 2px solid rgba(113, 69, 38, 0.35);
   box-shadow: 0 2px 0 rgba(113, 69, 38, 0.35);
+}
+
+.icon-button.off {
+  opacity: 0.55;
+  text-decoration: line-through;
 }
 
 .icon-button:hover {
@@ -583,6 +588,102 @@ footer p { margin: 2px 0; }
 
   .hud-center { top: auto; bottom: 6px; }
   .hud-chip { padding: 2px 7px; }
+}
+
+/* ===== Ayudas según el dispositivo ===== */
+.hint-touch { display: none; }
+
+@media (pointer: coarse) {
+  .hint-keys { display: none; }
+  .hint-touch { display: block; }
+}
+
+/* ===== Modo de juego inmersivo en celulares y tabletas pequeñas ===== */
+@media (max-width: 820px), (pointer: coarse) and (max-height: 620px) {
+  body.playing {
+    overflow: hidden;
+    padding: 0;
+    overscroll-behavior: none;
+  }
+
+  body.playing .game-container {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  body.playing .game-header,
+  body.playing footer,
+  body.playing .game-hint {
+    display: none !important;
+  }
+
+  body.playing #gamePanel {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: #2b1d0e;
+  }
+
+  body.playing .game-area {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  body.playing #gameCanvas {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+  }
+
+  body.playing .hud {
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) 8px max(8px, env(safe-area-inset-left));
+    font-size: clamp(0.8rem, 3.6vw, 1rem);
+  }
+
+  body.playing .hud-right {
+    margin-right: 0;
+    margin-top: clamp(40px, 11vw, 50px);
+  }
+
+  body.playing .hud-buttons {
+    top: max(8px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+  }
+
+  body.playing .icon-button {
+    width: 40px;
+    height: 40px;
+    font-size: 1.05rem;
+  }
+
+  body.playing .hud-center {
+    top: auto;
+    bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  body.playing .prompt {
+    top: 19%;
+  }
+}
+
+/* Pantalla completa real (botón ⛶) */
+.game-area:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  border: 0;
+  border-radius: 0;
+}
+
+.game-area:fullscreen #gameCanvas {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {

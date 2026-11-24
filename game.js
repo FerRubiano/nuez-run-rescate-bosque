@@ -45,15 +45,18 @@ const ui = {
 // ---------------------------------------------------------------------
 // 2. Constantes del mundo y de la cámara
 // ---------------------------------------------------------------------
-const W = 800;
-const H = 450;
+// Tamaño lógico del lienzo: se recalcula según la pantalla (diseño responsivo).
+let W = 800;
+let H = 450;
 
 const LANE_X = [-1.7, 0, 1.7];     // posición X de cada carril (unidades de mundo)
 const ROAD_HALF = 2.6;              // medio ancho del sendero
-const CAM_H = 2.4;                  // altura de la cámara
+let CAM_H = 2.4;                    // altura de la cámara (más alta en celular vertical)
 const CAM_BACK = 5;                 // distancia de la cámara detrás de Nuez
-const FOCAL = 520;                  // distancia focal (px)
-const HORIZON = 150;                // línea de horizonte en pantalla
+let FOCAL = 520;                    // distancia focal (px)
+let HORIZON = 150;                  // línea de horizonte en pantalla
+let IS_PORTRAIT = false;
+const IS_TOUCH = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
 const DRAW_DIST = 110;              // distancia máxima de dibujo
 
 const GRAVITY = 30;
@@ -168,6 +171,172 @@ const sfx = {
   go: () => sound(990, 0.2, "square", 0.05)
 };
 
+
+// ---------------------------------------------------------------------
+// 5b. Música de fondo original (generada con Web Audio: sin archivos ni derechos de autor)
+//     Tema alegre de bosque en Do mayor (Do – La menor – Fa – Sol), 112 pulsaciones por minuto.
+//     A medida que el bosque se restaura se suman instrumentos: la música también "reverdece".
+// ---------------------------------------------------------------------
+const MUSIC_KEY = "nuezRunMusic";
+let musicOn = loadNumber(MUSIC_KEY) !== 2;   // 2 = el jugador la apagó
+const music = {
+  bus: null,        // volumen general de la música
+  timer: null,
+  step: 0,
+  nextTime: 0,
+  playing: false,
+  noise: null
+};
+const MUSIC_VOLUME = 0.2;                     // bajo, para que quede de fondo
+const STEP_TIME = 60 / 112 / 2;               // duración de una corchea
+
+const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);
+
+// Acordes (bajo + notas del acorde) para cada compás.
+const CHORDS = [
+  { bass: 48, notes: [60, 64, 67] },   // Do
+  { bass: 45, notes: [57, 60, 64] },   // La menor
+  { bass: 41, notes: [53, 57, 60] },   // Fa
+  { bass: 43, notes: [55, 59, 62] }    // Sol
+];
+// Melodía: 2 frases de 4 compases (8 corcheas por compás). -1 = silencio.
+const MELODY = [
+  [72, -1, 76, -1, 79, 76, 74, 72], [69, -1, 72, -1, 76, 74, 72, 69],
+  [65, -1, 69, 72, 74, -1, 72, 69], [67, 71, 74, -1, 72, -1, 71, 67],
+  [79, -1, 77, 76, 74, -1, 76, 79], [81, -1, 79, 76, 72, -1, 74, 76],
+  [77, 76, 74, 72, 69, -1, 72, 74], [74, -1, 71, 74, 79, -1, -1, -1]
+];
+// Contramelodía tipo "campanitas", solo con el bosque restaurado.
+const BELLS = [84, -1, -1, 88, -1, -1, 91, -1];
+
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+  if (!music.bus) {
+    music.bus = audioCtx.createGain();
+    music.bus.gain.value = 0;
+    music.bus.connect(audioCtx.destination);
+    // Ruido blanco corto para la percusión suave.
+    const len = Math.floor(audioCtx.sampleRate * 0.2);
+    music.noise = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const data = music.noise.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  }
+}
+
+function musicNote(freq, t, dur, type, vol) {
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(g).connect(music.bus);
+  osc.start(t);
+  osc.stop(t + dur + 0.05);
+}
+
+function musicHat(t, vol) {
+  const src = audioCtx.createBufferSource();
+  src.buffer = music.noise;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = "highpass";
+  filter.frequency.value = 7000;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+  src.connect(filter).connect(g).connect(music.bus);
+  src.start(t);
+  src.stop(t + 0.06);
+}
+
+function musicKick(t, vol) {
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.frequency.setValueAtTime(130, t);
+  osc.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+  osc.connect(g).connect(music.bus);
+  osc.start(t);
+  osc.stop(t + 0.16);
+}
+
+function scheduleStep(step, t) {
+  const bar = Math.floor(step / 8) % 8;          // 8 compases = frase A + frase B
+  const beat = step % 8;
+  const chord = CHORDS[bar % 4];
+  const layer = typeof forestStage === "number" ? forestStage : 0;
+
+  // Bajo: en los tiempos 1 y 3.
+  if (beat === 0 || beat === 4) musicNote(midi(chord.bass), t, STEP_TIME * 3.5, "triangle", 0.16);
+  // Arpegio suave del acorde.
+  const arp = [0, 1, 2, 1, 0, 1, 2, 1][beat];
+  musicNote(midi(chord.notes[arp] + 12), t, STEP_TIME * 1.6, "sine", 0.045);
+  // Melodía principal.
+  const m = MELODY[bar][beat];
+  if (m > 0) musicNote(midi(m), t, STEP_TIME * 1.8, "triangle", 0.075);
+
+  // Capas que aparecen cuando el bosque se recupera.
+  if (layer >= 1 && beat % 2 === 1) musicHat(t, 0.035);
+  if (layer >= 2 && (beat === 0 || beat === 4)) musicKick(t, 0.15);
+  if (layer >= 3 && BELLS[beat] > 0 && bar % 2 === 0) musicNote(midi(BELLS[beat]), t, STEP_TIME * 2.5, "sine", 0.04);
+}
+
+function musicScheduler() {
+  // Programa las notas un poco por adelantado para que el ritmo sea estable.
+  while (music.nextTime < audioCtx.currentTime + 0.15) {
+    scheduleStep(music.step, music.nextTime);
+    music.step++;
+    music.nextTime += STEP_TIME;
+  }
+}
+
+function musicStart(fromBeginning = true) {
+  if (!musicOn || muted) return;
+  try {
+    ensureAudio();
+    if (music.playing) return;
+    if (fromBeginning) music.step = 0;
+    music.nextTime = audioCtx.currentTime + 0.08;
+    music.bus.gain.cancelScheduledValues(audioCtx.currentTime);
+    music.bus.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    music.bus.gain.linearRampToValueAtTime(MUSIC_VOLUME, audioCtx.currentTime + 1.2); // entrada suave
+    music.timer = setInterval(musicScheduler, 25);
+    music.playing = true;
+  } catch (e) { /* audio no disponible */ }
+}
+
+function musicStop() {
+  if (!music.playing) return;
+  clearInterval(music.timer);
+  music.timer = null;
+  music.playing = false;
+  if (music.bus && audioCtx) {
+    const now = audioCtx.currentTime;
+    music.bus.gain.cancelScheduledValues(now);
+    music.bus.gain.setValueAtTime(music.bus.gain.value, now);
+    music.bus.gain.linearRampToValueAtTime(0.0001, now + 0.25);   // salida suave
+  }
+}
+
+function toggleMusic() {
+  musicOn = !musicOn;
+  saveValue(MUSIC_KEY, musicOn ? 1 : 2);
+  updateMusicButton();
+  if (musicOn && (state === "running" || state === "countdown")) musicStart(false);
+  else musicStop();
+}
+
+function updateMusicButton() {
+  const btn = document.getElementById("musicButton");
+  if (!btn) return;
+  btn.classList.toggle("off", !musicOn);
+  btn.setAttribute("aria-label", musicOn ? "Apagar música" : "Encender música");
+  btn.setAttribute("aria-pressed", String(musicOn));
+}
+
 // ---------------------------------------------------------------------
 // 6. Navegación entre pantallas
 // ---------------------------------------------------------------------
@@ -175,8 +344,15 @@ function showOnly(panel) {
   for (const p of [mainMenu, instructionsPanel, gamePanel, resultPanel]) p.hidden = p !== panel;
 }
 
+function exitFullscreen() {
+  document.body.classList.remove("playing");
+  if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+}
+
 function showMenu() {
   stopLoop();
+  musicStop();
+  exitFullscreen();
   state = "menu";
   ui.menuRecord.textContent = record;
   showOnly(mainMenu);
@@ -184,6 +360,8 @@ function showMenu() {
 
 function showInstructions() {
   stopLoop();
+  musicStop();
+  exitFullscreen();
   state = "menu";
   showOnly(instructionsPanel);
 }
@@ -198,6 +376,8 @@ function stopLoop() {
 // ---------------------------------------------------------------------
 function startGame(forceTutorial = false) {
   stopLoop();
+  document.body.classList.add("playing");
+  showOnly(gamePanel);
   setupCanvas();
 
   player = {
@@ -239,6 +419,8 @@ function startGame(forceTutorial = false) {
   updateHUD(true);
 
   state = "countdown";
+  musicStop();
+  musicStart(true);
   countdownTime = 3;
   ui.countdown.hidden = false;
   ui.countdown.textContent = "3";
@@ -249,11 +431,36 @@ function startGame(forceTutorial = false) {
 }
 
 function setupCanvas() {
+  // El lienzo toma el tamaño real que le da el CSS (escritorio 16:9, celular pantalla completa).
+  const rect = canvas.getBoundingClientRect();
+  W = Math.max(280, Math.round(rect.width || 800));
+  H = Math.max(240, Math.round(rect.height || 450));
+  IS_PORTRAIT = H > W * 1.05;
+
+  if (IS_PORTRAIT) {
+    // Celular vertical: cámara más alta y más cerca, como Subway Surfers en móvil.
+    FOCAL = W * 0.98;
+    CAM_H = clamp((H * 0.54) * CAM_BACK / FOCAL, 3, 6);
+  } else {
+    CAM_H = 2.4;
+    FOCAL = Math.min(W * 0.65, H * 1.16);
+  }
+  // Los pies de Nuez quedan siempre cerca del borde inferior.
+  HORIZON = H * (IS_PORTRAIT ? 0.86 : 0.88) - CAM_H * FOCAL / CAM_BACK;
+
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = W * dpr;
-  canvas.height = H * dpr;
+  canvas.width = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
+
+function handleResize() {
+  if (gamePanel.hidden) return;
+  setupCanvas();
+  if (state !== "running") draw();
+}
+window.addEventListener("resize", handleResize);
+window.addEventListener("orientationchange", () => setTimeout(handleResize, 250));
 
 // ---------------------------------------------------------------------
 // 8. Entrada: teclado y gestos táctiles
@@ -312,6 +519,7 @@ window.addEventListener("keydown", (event) => {
     else if (state === "paused") resumeGame();
   }
   if (event.code === "KeyM") toggleMute();
+  if (event.code === "KeyN") toggleMusic();
   if (event.code === "Enter" && state === "over" && !resultPanel.hidden) startGame();
 });
 
@@ -353,6 +561,7 @@ function pauseGame() {
   pausedFrom = state;
   state = "paused";
   ui.pauseOverlay.hidden = false;
+  musicStop();
   $("resumeButton").focus();
 }
 let pausedFrom = "running";
@@ -362,12 +571,16 @@ function resumeGame() {
   ui.pauseOverlay.hidden = true;
   state = pausedFrom;
   lastFrame = performance.now();
+  musicStart(false);
 }
 
 function toggleMute() {
   muted = !muted;
   ui.muteButton.textContent = muted ? "🔇" : "🔊";
   ui.muteButton.setAttribute("aria-label", muted ? "Activar sonido" : "Silenciar");
+  // Silenciar apaga todo (efectos y música); al reactivar, la música vuelve si estaba encendida.
+  if (muted) musicStop();
+  else if (state === "running" || state === "countdown") musicStart(false);
 }
 
 window.addEventListener("blur", () => { if (state === "running") pauseGame(); });
@@ -391,16 +604,20 @@ function laneFree(lane, z0, z1) {
   return !entities.some((e) => e.kind === "obstacle" && e.lane === lane && e.z < z1 + 1 && e.z + e.d > z0 - 1);
 }
 
-function addAcornLine(lane, zStart, count, arcOverZ = null) {
+function addAcorn(lane, z, y, golden = false) {
+  entities.push({ kind: "acorn", lane, x: LANE_X[lane], y, z, taken: false, golden, phase: Math.random() * 6 });
+}
+
+function addAcornLine(lane, zStart, count, arcOverZ = null, y = 0.55) {
   for (let i = 0; i < count; i++) {
     const z = zStart + i * 2.2;
-    let y = 0.55;
+    let ay = y;
     if (arcOverZ !== null) {
       const dz = (z - arcOverZ) / 3.6;
-      y = 0.55 + Math.max(0, 1.5 * (1 - dz * dz));
+      ay = 0.55 + Math.max(0, 1.5 * (1 - dz * dz));
     }
     if (arcOverZ === null && !laneFree(lane, z - 0.5, z + 0.5)) continue;
-    entities.push({ kind: "acorn", lane, x: LANE_X[lane], y, z, taken: false, phase: Math.random() * 6 });
+    addAcorn(lane, z, ay);
   }
 }
 
@@ -451,13 +668,7 @@ function spawnRow(z) {
 
   const freeLanes = [0, 1, 2].filter((l) => !used.includes(l));
 
-  // Bellotas: una fila en un carril libre o un arco sobre un tronco.
-  const logLanes = used.filter((l, i) => types[i] === "log");
-  if (logLanes.length && Math.random() < 0.45) {
-    addAcornLine(logLanes[0], z - 6.6, 7, z + 0.35);
-  } else if (freeLanes.length) {
-    addAcornLine(pick(freeLanes), z - 4, 6);
-  }
+  placeAcorns(z, used, types, freeLanes);
 
   // Potenciador ocasional en un carril libre.
   const hasPower = entities.some((e) => e.kind === "power");
@@ -466,6 +677,71 @@ function spawnRow(z) {
     if (laneFree(lane, z + 3, z + 4)) {
       entities.push({ kind: "power", type: pick(Object.keys(POWERS)), lane, x: LANE_X[lane], y: 0.8, z: z + 3.5, taken: false });
     }
+  }
+}
+
+// ---------------------------------------------------------------------
+// 10b. Ubicación de bellotas con riesgo y recompensa
+// (Retroalimentación del docente: las bellotas ya no marcan siempre el camino seguro)
+// ---------------------------------------------------------------------
+function placeAcorns(z, used, types, freeLanes) {
+  const d = difficulty();
+  const risk = 0.3 + d * 0.5;               // qué tan "tramposas" son las bellotas (sube con el tiempo)
+  const laneOf = (type) => used.find((l, i) => types[i] === type);
+  const logLane = laneOf("log");
+  const branchLane = laneOf("branch");
+  const truckLane = laneOf("truck");
+
+  const options = [
+    // Tramo sin bellotas: el jugador debe leer los obstáculos por sí mismo.
+    { w: 0.18, run: () => {} },
+    // Fila segura en un carril libre (más corta y, a veces, cortada).
+    { w: freeLanes.length ? 1.1 - risk : 0, run: () => {
+      const lane = pick(freeLanes);
+      const n = Math.random() < 0.4 ? 3 : 5;
+      addAcornLine(lane, z - rand(2, 8), n);
+    } },
+    // Carnada: bellotas que llevan directo hacia un obstáculo; hay que reaccionar a tiempo.
+    { w: risk * 0.9, run: () => {
+      const lane = truckLane !== undefined ? truckLane : (logLane !== undefined ? logLane : branchLane);
+      if (lane === undefined) return addAcornLine(pick(freeLanes), z - 4, 4);
+      addAcornLine(lane, z - 10.5, 4);
+      // La bellota dorada queda justo antes del obstáculo: mayor premio, mayor riesgo.
+      if (Math.random() < 0.35 * risk && laneFree(lane, z - 4.3, z - 3.8)) addAcorn(lane, z - 4, 0.55, true);
+    } },
+    // Arco sobre el tronco: solo se recoge saltando.
+    { w: logLane !== undefined ? 0.5 : 0, run: () => {
+      addAcornLine(logLane, z - 6.6, 7, z + 0.35);
+    } },
+    // Bajo el árbol caído: solo se recoge rodando.
+    { w: branchLane !== undefined ? 0.45 * risk + 0.15 : 0, run: () => {
+      for (const dz of [-1.6, 0.25, 2.1]) addAcorn(branchLane, z + dz, 0.3);
+      if (Math.random() < 0.3 * risk) addAcorn(branchLane, z + 0.25, 0.3, true);
+    } },
+    // Bellotas en el aire: hay que saltar en un carril libre.
+    { w: freeLanes.length ? 0.35 * risk : 0, run: () => {
+      const lane = pick(freeLanes);
+      for (let i = 0; i < 4; i++) {
+        const zz = z - 6 + i * 1.8;
+        if (laneFree(lane, zz - 0.5, zz + 0.5)) addAcorn(lane, zz, 2.1, i === 1 && Math.random() < 0.4 * risk);
+      }
+    } },
+    // Zigzag: la fila cambia de carril y obliga a moverse.
+    { w: 0.25 * risk, run: () => {
+      let lane = Math.floor(Math.random() * 3);
+      for (let i = 0; i < 6; i++) {
+        const zz = z - 12 + i * 2;
+        if (i === 3) lane = clamp(lane + pick([-1, 1]), 0, 2);
+        if (laneFree(lane, zz - 0.5, zz + 0.5)) addAcorn(lane, zz, 0.55);
+      }
+    } }
+  ];
+
+  const total = options.reduce((a, o) => a + Math.max(0, o.w), 0);
+  let r = Math.random() * total;
+  for (const o of options) {
+    r -= Math.max(0, o.w);
+    if (r <= 0) { o.run(); return; }
   }
 }
 
@@ -623,10 +899,15 @@ function update(dt) {
 function updateTutorial() {
   const lesson = entities.find((e) => e.tutorial && !e.passed && e.z + e.d > -0.5);
   if (lesson && lesson.z < 26 && lesson.z > -0.3) {
-    const texts = {
-      jump: "⬆️ ¡SALTA el tronco!<small>Flecha ↑ · Espacio · desliza hacia arriba</small>",
-      roll: "⬇️ ¡RUEDA bajo el árbol!<small>Flecha ↓ · S · desliza hacia abajo</small>",
-      lane: "⬅️ ➡️ ¡CAMBIA de sendero!<small>Flechas ← → · A / D · desliza a los lados</small>"
+    // Las indicaciones cambian según el dispositivo (teclado o pantalla táctil).
+    const texts = IS_TOUCH ? {
+      jump: "⬆️ ¡SALTA el tronco!<small>Desliza el dedo hacia arriba o toca la pantalla</small>",
+      roll: "⬇️ ¡RUEDA bajo el árbol!<small>Desliza el dedo hacia abajo</small>",
+      lane: "⬅️ ➡️ ¡CAMBIA de sendero!<small>Desliza el dedo a la izquierda o derecha</small>"
+    } : {
+      jump: "⬆️ ¡SALTA el tronco!<small>Flecha ↑ · W · Espacio</small>",
+      roll: "⬇️ ¡RUEDA bajo el árbol!<small>Flecha ↓ · S</small>",
+      lane: "⬅️ ➡️ ¡CAMBIA de sendero!<small>Flechas ← → · A / D</small>"
     };
     showPrompt(texts[lesson.lesson], 0.2);
   }
@@ -662,15 +943,21 @@ function handleCollectibles(dt, move) {
     }
 
     const near = e.z < 0.7 && e.z + move > -0.7 && Math.abs(e.x - player.x) < 0.8 &&
-      e.y > player.y - 0.4 && e.y < player.y + PLAYER_H + 0.5;
+      e.y > player.y - 0.4 && e.y < player.y + (player.rollTime > 0 ? PLAYER_ROLL_H : PLAYER_H) + 0.35;
     if (!near) continue;
 
     e.taken = true;
     const p = project(e.x, e.y, Math.max(e.z, 0.2));
     if (e.kind === "acorn") {
-      acornCount++;
-      score += 10 * (activePowers.double ? 2 : 1);
-      sfx.acorn();
+      const value = e.golden ? 3 : 1;
+      acornCount += value;
+      score += (e.golden ? 50 : 10) * (activePowers.double ? 2 : 1);
+      if (e.golden) {
+        sfx.power();
+        floaters.push({ x: p.x, y: p.y - 24, text: "🌟 +50 · bellota dorada", color: "#a56c12", life: 1.2 });
+      } else {
+        sfx.acorn();
+      }
       for (let i = 0; i < 6; i++) {
         sparkles.push({ x: p.x, y: p.y, vx: rand(-120, 120), vy: rand(-200, -60), life: rand(0.3, 0.55), color: pick(["#ffd75e", "#fff2a6", "#9bcf83"]) });
       }
@@ -734,7 +1021,7 @@ function stumble(o) {
   sfx.stumble();
 
   if (o.tutorial) {
-    floaters.push({ x: W / 2, y: 200, text: "¡Cuidado con los lados!", color: "#a33b32", life: 1.2 });
+    floaters.push({ x: W / 2, y: H * 0.42, text: "¡Cuidado con los lados!", color: "#a33b32", life: 1.2 });
     return;
   }
   if (chaser.timer > 0 && player.invuln <= 0) {
@@ -742,7 +1029,7 @@ function stumble(o) {
     loseLife("chaser");
   } else {
     chaser.timer = 6;
-    floaters.push({ x: W / 2, y: 200, text: "⚠️ ¡La Taladora se acerca!", color: "#a33b32", life: 1.4 });
+    floaters.push({ x: W / 2, y: H * 0.42, text: "⚠️ ¡La Taladora se acerca!", color: "#a33b32", life: 1.4 });
   }
 }
 
@@ -753,7 +1040,7 @@ function crash(o) {
     shake = REDUCED_MOTION ? 0 : 0.6;
     sfx.stumble();
     const again = { jump: "¡Casi! Presiona ↑ para saltar", roll: "¡Casi! Presiona ↓ para rodar", lane: "¡Casi! Usa ← → para cambiar de sendero" };
-    floaters.push({ x: W / 2, y: 210, text: again[o.lesson], color: "#a33b32", life: 1.6 });
+    floaters.push({ x: W / 2, y: H * 0.44, text: again[o.lesson], color: "#a33b32", life: 1.6 });
     return;
   }
   if (player.invuln > 0) return;
@@ -765,7 +1052,7 @@ function loseLife(cause) {
     delete activePowers.shield;
     player.invuln = 1.2;
     sfx.power();
-    floaters.push({ x: W / 2, y: 200, text: "🍃 ¡El escudo te protegió!", color: "#397b46", life: 1.4 });
+    floaters.push({ x: W / 2, y: H * 0.42, text: "🍃 ¡El escudo te protegió!", color: "#397b46", life: 1.4 });
     return;
   }
   lives--;
@@ -774,7 +1061,7 @@ function loseLife(cause) {
   chaser.timer = 4;
   shake = REDUCED_MOTION ? 0 : 1;
   sfx.hit();
-  floaters.push({ x: W / 2, y: 200, text: "💔 −1 vida · " + CAUSES[cause].text, color: "#a33b32", life: 1.6 });
+  floaters.push({ x: W / 2, y: H * 0.42, text: "💔 −1 vida · " + CAUSES[cause].text, color: "#a33b32", life: 1.6 });
   updateHUD(true);
   if (lives <= 0) endGame(cause);
 }
@@ -784,6 +1071,7 @@ function loseLife(cause) {
 // ---------------------------------------------------------------------
 function endGame(cause) {
   state = "over";
+  musicStop();
   stopLoop();
   draw();
   hidePrompt();
@@ -815,7 +1103,9 @@ function endGame(cause) {
   ui.resultMessage.textContent = msg;
   ui.resultTip.textContent = c.tip;
 
+  exitFullscreen();
   showOnly(resultPanel);
+  window.scrollTo({ top: 0, behavior: "instant" });
   $("restartButton").focus();
 }
 
@@ -903,7 +1193,8 @@ function drawBox(cx, y0, z0, w, h, d, cFront, cSide, cTop) {
   const xr = cx + w / 2;
   const y1 = y0 + h;
   const z1 = z0 + d;
-  z0 = Math.max(z0, -CAM_BACK + 0.8);   // recorta lo que queda detrás de la cámara
+  const clipped = z0 < -1.0;
+  z0 = Math.max(z0, -1.0);   // recorta lo que ya pasó muy cerca de la cámara (evita "paredes" gigantes)
   if (z1 <= z0) return null;
   const fl = project(xl, y0, z0), fr = project(xr, y0, z0);
   const flt = project(xl, y1, z0), frt = project(xr, y1, z0);
@@ -912,6 +1203,8 @@ function drawBox(cx, y0, z0, w, h, d, cFront, cSide, cTop) {
   if (y1 < CAM_H) poly([flt, frt, brt, blt], cTop);
   if (xl > camX) poly([fl, flt, blt, bl], cSide);
   if (xr < camX) poly([fr, frt, brt, br], cSide);
+  // Si el objeto ya pasó a Nuez, no se dibuja la cara frontal "cortada": solo sus lados.
+  if (clipped) return null;
   poly([fl, fr, frt, flt], cFront);
   return { fl, fr, flt, frt };
 }
@@ -949,7 +1242,7 @@ function draw() {
   const drawables = [];
   for (const t of scenery) if (t.z < DRAW_DIST && t.z > -CAM_BACK + 0.6) drawables.push({ z: t.z, fn: () => drawTree(t, pal) });
   for (const e of entities) {
-    if (e.z > DRAW_DIST || e.z + (e.d || 0) < -CAM_BACK + 0.8) continue;
+    if (e.z > DRAW_DIST || e.z + (e.d || 0) < -2.2) continue;
     if (e.kind === "obstacle") drawables.push({ z: e.z + e.d * 0.5, fn: () => drawObstacle(e) });
     else if (e.kind === "acorn") drawables.push({ z: e.z, fn: () => drawAcorn(e) });
     else if (e.kind === "power") drawables.push({ z: e.z, fn: () => drawPower(e) });
@@ -977,7 +1270,7 @@ function drawSky(pal) {
   // Sol
   ctx.fillStyle = mixColor("#f6c85f", "#ffe98a", pal.progress);
   ctx.beginPath();
-  ctx.arc(640 - camX * 8, 70, 30 + pal.progress * 5, 0, Math.PI * 2);
+  ctx.arc(W * 0.8 - camX * 8, Math.min(70, HORIZON * 0.45), 30 + pal.progress * 5, 0, Math.PI * 2);
   ctx.fill();
 
   // Colinas lejanas con ligero paralaje
@@ -1251,12 +1544,12 @@ function shade(color) {
   return `rgb(${Math.round(c.r * 0.72)}, ${Math.round(c.g * 0.72)}, ${Math.round(c.b * 0.72)})`;
 }
 
-function drawAcornShape(x, y, r, squash) {
+function drawAcornShape(x, y, r, squash, golden = false) {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(Math.max(0.25, squash), 1);
   // Nuez
-  ctx.fillStyle = "#c98a45";
+  ctx.fillStyle = golden ? "#f4c430" : "#c98a45";
   ctx.beginPath();
   ctx.ellipse(0, r * 0.25, r * 0.78, r * 0.95, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -1270,7 +1563,7 @@ function drawAcornShape(x, y, r, squash) {
   ctx.arc(0, r * 1.2, r * 0.12, 0, Math.PI * 2);
   ctx.fill();
   // Capuchón
-  ctx.fillStyle = "#6e4523";
+  ctx.fillStyle = golden ? "#b8860b" : "#6e4523";
   ctx.beginPath();
   ctx.ellipse(0, -r * 0.35, r * 0.95, r * 0.5, 0, Math.PI, 0);
   ctx.lineTo(r * 0.95, -r * 0.3);
@@ -1288,12 +1581,12 @@ function drawAcorn(a) {
   const p = project(a.x, a.y + Math.sin(t) * 0.06, a.z);
   ctx.save();
   ctx.globalAlpha = alpha;
-  // brillo
-  ctx.fillStyle = "rgba(255, 236, 150, 0.35)";
+  // brillo (más intenso en la bellota dorada)
+  ctx.fillStyle = a.golden ? "rgba(255, 215, 60, 0.55)" : "rgba(255, 236, 150, 0.35)";
   ctx.beginPath();
-  ctx.arc(p.x, p.y, 0.3 * p.s, 0, Math.PI * 2);
+  ctx.arc(p.x, p.y, (a.golden ? 0.42 + Math.sin(t * 2) * 0.05 : 0.3) * p.s, 0, Math.PI * 2);
   ctx.fill();
-  drawAcornShape(p.x, p.y, 0.2 * p.s, Math.abs(Math.cos(t * 0.6)));
+  drawAcornShape(p.x, p.y, (a.golden ? 0.26 : 0.2) * p.s, Math.abs(Math.cos(t * 0.6)), a.golden);
   ctx.restore();
 }
 
@@ -1550,6 +1843,20 @@ $("restartButton").addEventListener("click", () => startGame(false));
 $("menuButton").addEventListener("click", showMenu);
 $("pauseButton").addEventListener("click", () => (state === "paused" ? resumeGame() : pauseGame()));
 $("muteButton").addEventListener("click", toggleMute);
+$("musicButton").addEventListener("click", toggleMusic);
+updateMusicButton();
+
+// Pantalla completa real (oculta las barras del navegador en celulares compatibles).
+const fullscreenButton = $("fullscreenButton");
+if (!document.documentElement.requestFullscreen) {
+  fullscreenButton.hidden = true;
+} else {
+  fullscreenButton.addEventListener("click", () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else gameArea.requestFullscreen().catch(() => {});
+  });
+  document.addEventListener("fullscreenchange", () => setTimeout(handleResize, 100));
+}
 $("resumeButton").addEventListener("click", resumeGame);
 $("quitButton").addEventListener("click", showMenu);
 
