@@ -56,6 +56,8 @@ const CAM_BACK = 5;                 // distancia de la cámara detrás de Nuez
 let FOCAL = 520;                    // distancia focal (px)
 let HORIZON = 150;                  // línea de horizonte en pantalla
 let IS_PORTRAIT = false;
+let VIEW_DIST = 110;                // hasta dónde se alcanza a ver (en celular vertical hay neblina más cerca)
+let TREE_SCALE = 1;
 const IS_TOUCH = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
 const DRAW_DIST = 110;              // distancia máxima de dibujo
 
@@ -439,14 +441,20 @@ function setupCanvas() {
 
   if (IS_PORTRAIT) {
     // Celular vertical: cámara más alta y más cerca, como Subway Surfers en móvil.
-    FOCAL = W * 0.98;
-    CAM_H = clamp((H * 0.54) * CAM_BACK / FOCAL, 3, 6);
+    // Celular vertical: cámara baja, justo detrás de Nuez (como en el computador),
+    // con neblina para que no se vea el camino desde muy lejos.
+    FOCAL = W * 1.15;
+    CAM_H = 2.4;
+    VIEW_DIST = 62;
+    TREE_SCALE = 1.7;   // árboles más altos que llenan la parte superior de la pantalla
   } else {
     CAM_H = 2.4;
     FOCAL = Math.min(W * 0.65, H * 1.16);
+    VIEW_DIST = DRAW_DIST;
+    TREE_SCALE = 1;
   }
   // Los pies de Nuez quedan siempre cerca del borde inferior.
-  HORIZON = H * (IS_PORTRAIT ? 0.86 : 0.88) - CAM_H * FOCAL / CAM_BACK;
+  HORIZON = H * (IS_PORTRAIT ? 0.84 : 0.88) - CAM_H * FOCAL / CAM_BACK;
 
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.round(W * dpr);
@@ -1237,6 +1245,7 @@ function draw() {
 
   drawSky(pal);
   drawGround(pal);
+  drawMist(pal);
 
   // Ordenar todos los objetos de lejos a cerca.
   const drawables = [];
@@ -1256,8 +1265,21 @@ function draw() {
   ctx.restore();
 }
 
+// Neblina del bosque: oculta lo que está lejos (sobre todo en celular vertical).
+function drawMist(pal) {
+  if (VIEW_DIST >= DRAW_DIST) return;
+  const yFar = HORIZON - 30;
+  const yNear = project(0, 0, VIEW_DIST - 28).y;
+  const g = ctx.createLinearGradient(0, yFar, 0, yNear);
+  g.addColorStop(0, pal.sky);
+  g.addColorStop(0.55, pal.sky);
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(-20, yFar, W + 40, yNear - yFar);
+}
+
 function fogAlpha(z) {
-  return clamp((DRAW_DIST - z) / 18, 0, 1);
+  return clamp((VIEW_DIST - z) / 18, 0, 1);
 }
 
 function drawSky(pal) {
@@ -1366,7 +1388,7 @@ function drawTree(t, pal) {
   }
 
   const base = project(t.x, 0, t.z);
-  const s = base.s * t.size;
+  const s = base.s * t.size * TREE_SCALE;
   const isStump = t.seed < 0.35 * (1 - pal.progress * 1.6);   // tocones que desaparecen al restaurar
   const isSapling = !isStump && t.seed < 0.35;
 
